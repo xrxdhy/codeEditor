@@ -52,6 +52,10 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QTextEdit>
+#include <QHBoxLayout>
+#include <QDockWidget>
+#include <QProcess>
 
 #include "src/codeEditor.h"
 #include "src/highLight.h"
@@ -109,5 +113,8 @@ private:
     QString strippedName(const QString &fullFileName);  // 文件url
     CodeEditor *textEdit;                               // 代码编辑器控件
     QString curFile;                                    // 文件名
+    QTextEdit *output;
+    QVBoxLayout *editLayout;                            //
+    QDockWidget *dock;
 };
 #endif  // MAINWINDOW_H

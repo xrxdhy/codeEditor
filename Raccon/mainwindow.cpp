@@ -7,7 +7,6 @@
 
 #include <QtWidgets>
 #include <QtDebug>
-#include <QProcess>
 
 #include "mainwindow.h"
 
@@ -15,14 +14,25 @@ int CUR_FILE_TYPE = /*DO*/C_FILE;
 
 MainWindow::MainWindow(): textEdit(new CodeEditor)
 {// 初始化
-    // QProcess::execute("ls");
+    //QProcess::execute("ls");
     // Debug-Code
-    // qDebug()<<"hello, world!";
+    //qDebug()<<"hello, world!";
 
     // 初始化代码编辑器控件
     textEdit->setMode(EDIT);
     setCentralWidget(textEdit);
     new MyHighLighter(textEdit->document(),CUR_FILE_TYPE);
+
+    //add dock wiget
+    output = new QTextEdit();
+    output->setReadOnly(true);
+
+    dock = new QDockWidget();
+    dock->setFeatures(QDockWidget::DockWidgetMovable);//dock widget movable
+    dock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+    dock->setWidget(output);
+    dock->setWindowTitle("Compile and Debug information:");
+    addDockWidget(Qt::BottomDockWidgetArea,dock);
 
     // 其他UI
     createActions();
@@ -100,8 +110,8 @@ void MainWindow::open()
         }
         else
         {
-            new MyHighLighter(textEdit->document(),DOC_FILE);
-            CUR_FILE_TYPE = DOC_FILE;
+            new MyHighLighter(textEdit->document(),C_FILE);
+            CUR_FILE_TYPE = C_FILE;
         }
         if (!fileName.isEmpty())
             loadFile(fileName);
@@ -128,27 +138,55 @@ bool MainWindow::saveAs()
 }
 
 void MainWindow::run()
-{// 运行
-    switch (CUR_FILE_TYPE) {
-    case C_FILE:// gcc
-        QProcess::execute("rm tmp");    // 简单处理之前编译结果
-        QProcess::execute("gcc -o tmp "+curFile);
-        QProcess::execute("./tmp");
-        break;
-    case PYTHON_FILE:// python
-        QProcess::execute("python "+curFile);
-        break;
-    case JAVA_FILE:// javac,java
-        QProcess::execute("javac "+curFile);
-        QString javaFileSuffix = ".java";
-        int sufPos = curFile.lastIndexOf(javaFileSuffix)-5;
-        int start = curFile.lastIndexOf("/");
-        QString curJavaPath = curFile.left(start+1);
-        QProcess::execute("java -classpath "
-                          + curJavaPath
-                          + " " + curFile.mid(start+1,(sufPos-start)+4));
-        break;
+{
+    //check file
+    if (curFile.isEmpty()) {
+        saveAs();
+    } else {
+        saveFile(curFile);
     }
+    // 运行
+    //Add compile process
+    QString program = "gcc";//"gcc -o a.out";
+    QStringList argu;
+    argu << curFile;
+    QProcess *compile = new QProcess(this);
+    compile->setProcessChannelMode(QProcess::MergedChannels);
+    compile->start(program, argu);
+    compile->waitForStarted();
+    compile->waitForFinished();
+    if(0 == compile->exitCode()){
+        program = "./a.out";
+        compile->start(program);
+        compile->waitForStarted();
+        compile->waitForFinished();
+    }
+    QByteArray result = compile->readAll();
+
+    output->setText(result);
+    //output->update();
+
+
+//    switch (CUR_FILE_TYPE) {
+//    case C_FILE:// gcc
+//        QProcess::execute("rm tmp");    // 简单处理之前编译结果
+//        QProcess::execute("gcc -o tmp "+curFile);
+//        QProcess::execute("./tmp");
+//        break;
+//    case PYTHON_FILE:// python
+//        QProcess::execute("python "+curFile);
+//        break;
+//    case JAVA_FILE:// javac,java
+//        QProcess::execute("javac "+curFile);
+//        QString javaFileSuffix = ".java";
+//        int sufPos = curFile.lastIndexOf(javaFileSuffix)-5;
+//        int start = curFile.lastIndexOf("/");
+//        QString curJavaPath = curFile.left(start+1);
+//        QProcess::execute("java -classpath "
+//                          + curJavaPath
+//                          + " " + curFile.mid(start+1,(sufPos-start)+4));
+//        break;
+//    }
 }
 
 void MainWindow::comm()
@@ -231,14 +269,14 @@ void MainWindow::format()
     {// 处理每行的缩进情况
         for(QChar c : line)
         {// 获取每行的缩进级别
-            if(c == "{")
+            if(c == '{')
                 formatLevel++;
-            else if(c == "}")
+            else if(c == '}')
                 if(formatLevel > 0)
                     formatLevel--;
         }
         lineFormatLevel = 0;
-        if (formatLevel > 0 && line[0] != " ")
+        if (formatLevel > 0 && line[0] != ' ')
         {// 进行缩进 / 不处理前方有空格的情况
             // 含有 ”{“ 的行减少一级缩进
             if (line.contains("{"))
@@ -251,7 +289,8 @@ void MainWindow::format()
         }
         line = line.append("\n");
         formatLineList.append(line);
-    }// 获取缩进文本
+    }
+    // 获取缩进文本
     for(QString line : formatLineList)
         formatText += line;
     int needLength = formatText.size(); // 去掉最后一个换行符
@@ -348,7 +387,8 @@ void MainWindow::createActions()
     QToolBar *fileToolBar = addToolBar(tr("File"));
 
     // 1,NEW
-    const QIcon newIcon = QIcon::fromTheme("document-new", QIcon(":/images/new.png"));
+    //const QIcon newIcon = QIcon::fromTheme("document-new", QIcon(":/images/new.png"));
+    QIcon newIcon = QIcon(":/images/new.png");
     QAction *newAct = new QAction(newIcon, tr("&New"), this);
     newAct->setShortcuts(QKeySequence::New);
     newAct->setStatusTip(tr("创建一个新文件"));
@@ -357,7 +397,8 @@ void MainWindow::createActions()
     fileToolBar->addAction(newAct);
 
     // 2,Open
-    const QIcon openIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
+    //const QIcon openIcon = QIcon::fromTheme("document-open", QIcon(":/images/open.png"));
+    QIcon openIcon = QIcon(":/images/open.png");
     QAction *openAct = new QAction(openIcon, tr("&Open..."), this);
     openAct->setShortcuts(QKeySequence::Open);
     openAct->setStatusTip(tr("打开一个文件"));
@@ -366,7 +407,8 @@ void MainWindow::createActions()
     fileToolBar->addAction(openAct);
 
     // 3,Save
-    const QIcon saveIcon = QIcon::fromTheme("document-save", QIcon(":/images/save.png"));
+    //const QIcon saveIcon = QIcon::fromTheme("document-save", QIcon(":/images/save.png"));
+    QIcon saveIcon = QIcon(":/images/save.png");
     QAction *saveAct = new QAction(saveIcon, tr("&Save"), this);
     saveAct->setShortcuts(QKeySequence::Save);
     saveAct->setStatusTip(tr("保存文件"));
@@ -381,7 +423,8 @@ void MainWindow::createActions()
     saveAsAct->setStatusTip(tr("另存为"));
 
     // 5,run
-    const QIcon runAsIcon = QIcon::fromTheme("document-run", QIcon(":/images/run.png"));
+    //const QIcon runAsIcon = QIcon::fromTheme("document-run", QIcon(":/images/run.png"));
+    QIcon runAsIcon = QIcon(":/images/run.png");
     QAction *runAct = fileMenu->addAction(runAsIcon, tr("&Run"), this, &MainWindow::run);
     runAct->setShortcuts(QKeySequence::Refresh);
     runAct->setStatusTip(tr("运行"));
@@ -401,7 +444,8 @@ void MainWindow::createActions()
 
     // 1,cut
 #ifndef QT_NO_CLIPBOARD
-    const QIcon cutIcon = QIcon::fromTheme("edit-cut", QIcon(":/images/cut.png"));
+    //const QIcon cutIcon = QIcon::fromTheme("edit-cut", QIcon(":/images/cut.png"));
+    QIcon cutIcon = QIcon(":/images/cut.png");
     QAction *cutAct = new QAction(cutIcon, tr("Cu&t"), this);
     cutAct->setShortcuts(QKeySequence::Cut);
     cutAct->setStatusTip(tr("剪切文本"));
@@ -410,7 +454,8 @@ void MainWindow::createActions()
     editToolBar->addAction(cutAct);
 
     // 2,copy
-    const QIcon copyIcon = QIcon::fromTheme("edit-copy", QIcon(":/images/copy.png"));
+    //const QIcon copyIcon = QIcon::fromTheme("edit-copy", QIcon(":/images/copy.png"));
+    QIcon copyIcon = QIcon(":/images/copy.png");
     QAction *copyAct = new QAction(copyIcon, tr("&Copy"), this);
     copyAct->setShortcuts(QKeySequence::Copy);
     copyAct->setStatusTip(tr("复制文本"));
@@ -419,7 +464,8 @@ void MainWindow::createActions()
     editToolBar->addAction(copyAct);
 
     // 3,paste
-    const QIcon pasteIcon = QIcon::fromTheme("edit-paste", QIcon(":/images/paste.png"));
+    //const QIcon pasteIcon = QIcon::fromTheme("edit-paste", QIcon(":/images/paste.png"));
+    QIcon pasteIcon = QIcon(":/images/paste.png");
     QAction *pasteAct = new QAction(pasteIcon, tr("&Paste"), this);
     pasteAct->setShortcuts(QKeySequence::Paste);
     pasteAct->setStatusTip(tr("粘贴文本"));
@@ -428,7 +474,8 @@ void MainWindow::createActions()
     editToolBar->addAction(pasteAct);
 
     // 4,undo
-    const QIcon undoIcon = QIcon::fromTheme("edit-undo", QIcon(":/images/revoke.png"));
+    //const QIcon undoIcon = QIcon::fromTheme("edit-undo", QIcon(":/images/revoke.png"));
+    QIcon undoIcon = QIcon(":/images/revoke.png");
     QAction *undoAct = new QAction(undoIcon, tr("&Undo"), this);
     undoAct->setShortcuts(QKeySequence::Undo);
     undoAct->setStatusTip(tr("撤销操作"));
@@ -437,7 +484,8 @@ void MainWindow::createActions()
     editToolBar->addAction(undoAct);
 
     // 4,redo
-    const QIcon redoIcon = QIcon::fromTheme("edit-redo", QIcon(":/images/recovery.png"));
+    //const QIcon redoIcon = QIcon::fromTheme("edit-redo", QIcon(":/images/recovery.png"));
+    QIcon redoIcon = QIcon(":/images/recovery.png");
     QAction *redoAct = new QAction(redoIcon, tr("&Redo"), this);
     redoAct->setShortcuts(QKeySequence::Redo);
     redoAct->setStatusTip(tr("恢复操作"));
@@ -446,7 +494,8 @@ void MainWindow::createActions()
     editToolBar->addAction(redoAct);
 
     // 5,comment
-    const QIcon commIcon = QIcon::fromTheme("edit-comm", QIcon(":/images/comment.png"));
+    //const QIcon commIcon = QIcon::fromTheme("edit-comm", QIcon(":/images/comment.png"));
+    QIcon commIcon = QIcon(":/images/comment.png");
     QAction *commAct = editMenu->addAction(commIcon, tr("Com&ment"), this, &MainWindow::comm);
     commAct->setStatusTip(tr("注释代码"));
     commAct->setShortcuts(QKeySequence::Underline);
@@ -454,14 +503,16 @@ void MainWindow::createActions()
     editToolBar->addAction(commAct);
 
     // 6,find
-    const QIcon findIcon = QIcon::fromTheme("edit-find", QIcon(":/images/search.png"));
+    //const QIcon findIcon = QIcon::fromTheme("edit-find", QIcon(":/images/search.png"));
+    QIcon findIcon = QIcon(":/images/search.png");
     QAction *findAct = editMenu->addAction(findIcon, tr("&Find"), this, &MainWindow::search);
     findAct->setStatusTip(tr("查找"));
     findAct->setShortcuts(QKeySequence::Find);
     editToolBar->addAction(findAct);
 
     // 7,match
-    const QIcon matchIcon = QIcon::fromTheme("edit-match", QIcon(":/images/match.png"));
+    //const QIcon matchIcon = QIcon::fromTheme("edit-match", QIcon(":/images/match.png"));
+    QIcon matchIcon = QIcon(":/images/match.png");
     QAction *matchAct = editMenu->addAction(matchIcon, tr("Mat&ch"), this, &MainWindow::bracketMatch);
     matchAct->setStatusTip(tr("括号匹配"));
     matchAct->setShortcuts(QKeySequence::Italic);
@@ -469,7 +520,8 @@ void MainWindow::createActions()
 
 
     // 8,format
-    const QIcon formatIcon = QIcon::fromTheme("edit-find", QIcon(":/images/format.png"));
+    //const QIcon formatIcon = QIcon::fromTheme("edit-find", QIcon(":/images/format.png"));
+    QIcon formatIcon = QIcon(":/images/format.png");
     QAction *formatdAct = editMenu->addAction(formatIcon, tr("F&ormat"), this, &MainWindow::format);
     formatdAct->setStatusTip(tr("自动格式化"));
     editToolBar->addAction(formatdAct);
