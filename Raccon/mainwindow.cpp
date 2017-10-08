@@ -1,9 +1,6 @@
 //        Racoon 代码编辑器
 //
 //      -=继承自Qt官方示例框架=-
-//
-//      author  :   @`13
-//      time    :   2017.03.02
 
 #include <QtWidgets>
 #include <QtDebug>
@@ -164,7 +161,6 @@ void MainWindow::run()
     QByteArray result = compile->readAll();
 
     output->setText(result);
-    //output->update();
 
 
 //    switch (CUR_FILE_TYPE) {
@@ -367,12 +363,7 @@ void MainWindow::bracketMatch()
 
 void MainWindow::about()
 {// 关于
-   QMessageBox::about(this, tr("About Raccon"),
-            tr("The <b>Raccon</b> is a CodeEditor    "
-               "written by <b>`13</b>    "
-               "if you want to learn more.  "
-               "contact me at <b>Github</b>:  "
-               "https://github.com/h-j-13  "));
+   QMessageBox::about(this, tr("About Raccon"), tr("The CodeEditor written for TS"));
 }
 
 void MainWindow::documentWasModified()
